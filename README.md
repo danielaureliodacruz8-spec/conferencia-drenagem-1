@@ -1,37 +1,56 @@
 # Conferência de Drenagem
 
-Projeto Flutter para Android com um protótipo de fiscalização de drenagem e os dados de referência das rodovias.
+Projeto Flutter para Android e iOS, preparado para testes de campo de fiscalização de drenagem rodoviária.
 
-## Gerar APK pelo CodeMagic
+## Gerar para iPhone pelo CodeMagic
 
-1. No CodeMagic, abra o repositório `conferencia-drenagem-1` e selecione a branch `main`.
-2. O `codemagic.yaml` fica na raiz do repositório e configura o fluxo **Android APK para teste**.
-3. Inicie o workflow `Android APK (teste)`. O CodeMagic cria a estrutura Android, baixa os pacotes e gera um APK de depuração para instalar no aparelho.
-4. Ao terminar, baixe `app-debug.apk` na área **Artifacts** do build.
+O CodeMagic compila o aplicativo em um Mac na nuvem. Assim, você pode iniciar a compilação pelo Safari no iPhone, sem precisar usar um computador Mac.
 
-## O que o app Android já faz nesta versão
+O arquivo `codemagic.yaml` contém dois workflows iOS, ambos configurados para **Xcode 27.2**:
 
-- Abre com a marca Strata/Basitec.
-- Permite selecionar GO-110 ou GO-236 e escolher o tipo de dispositivo compartilhado entre as rodovias.
-- Na GO-110, permite buscar dispositivos e referências de estaca extraídos do projeto.
-- Na GO-236, deixa a localização para preenchimento manual; não transfere para ela os locais da GO-110.
-- Ao abrir, solicita o GPS, projeta a posição para o eixo UTM e estima a estaca por `estaca inicial + distância ao longo do eixo ÷ 20 m`.
-- Registra coordenadas GPS, medidas digitadas, observações e foto.
-- Guarda registros localmente no aparelho e mantém a situação como pendente até haver critérios de aceitação configurados.
+### 1. `ios-device-check` — validar se o app compila
 
-## O que precisa de implementação antes de uso oficial
+- Gera a estrutura iOS.
+- Define o nome exibido como **Conferência de Drenagem**.
+- Configura as permissões de localização, câmera e galeria.
+- Compila sem assinatura e entrega um ZIP com o app iOS.
+- **O ZIP sem assinatura não pode ser instalado em um iPhone real.** Ele serve para validar a compilação.
 
-Esta versão é um MVP de campo para gerar e experimentar. A estaca calculada é uma estimativa pelo eixo; a conferência de alinhamento e tolerância de GPS continua necessária. O XML da GO-110 tem diferença entre extensão declarada e soma dos segmentos, e suas equações precisam ser confirmadas antes de tratar a estaca como oficial. Ainda falta incluir o carimbo da foto e relatórios PDF, definir fórmulas de concreto por tipo de dispositivo, configurar critérios/tolerâncias de aprovação e implementar sincronização. O APK de depuração serve para testar; para distribuição oficial, configure a assinatura Android no CodeMagic.
+### 2. `ios-iphone-development` — gerar IPA para instalar no iPhone
 
-## Organização
+Antes de executar:
 
-- `lib/`: app Flutter Android.
-- `codemagic.yaml`: workflow para gerar APK de depuração.
-- `material-base/app/prototype-singlefile.html`: protótipo navegável da interface.
-- `material-base/data/source/alignments/`: eixos XML da GO-110 e GO-236.
-- `material-base/data/processed/`: catálogo compartilhado e dados estruturados da drenagem da GO-110.
-- `material-base/data/processed/projects/GO236/README.md`: regra de localização manual até chegar o projeto da GO-236.
-- `material-base/docs/`: notas de coordenadas, decisões e fotos.
+1. Tenha uma associação ativa ao Apple Developer Program.
+2. Registre o UDID do iPhone na conta Apple Developer.
+3. Disponibilize um certificado **Apple Development** e um perfil **iOS App Development** para o identificador:
+   `br.com.stratabasitec.conferenciadrenagem`
+4. No CodeMagic, abra **Team settings → codemagic.yaml settings → Code signing identities**.
+5. Envie o certificado `.p12` e o perfil `.mobileprovision`.
+6. Execute o workflow `ios-iphone-development`.
 
-Os PDFs originais de drenagem não estão no repositório; as transcrições e os dados derivados estão em `material-base/data/processed/projects/GO110/`.
+O arquivo esperado em **Artifacts** é `build/ios/ipa/*.ipa`. O perfil de desenvolvimento precisa incluir o iPhone usado no teste.
 
+**Importante:** aceitar o contrato gratuito da Apple, sozinho, não fornece os certificados e perfis necessários para esse fluxo de assinatura. A compilação sem assinatura também não substitui a assinatura para instalação em aparelho real.
+
+## Gerar APK Android
+
+O workflow `android-debug` continua disponível e separado dos workflows iOS. Ele gera o APK de teste Android como antes.
+
+## Identificação do aplicativo
+
+- Nome exibido: **Conferência de Drenagem**
+- Bundle identifier iOS: `br.com.stratabasitec.conferenciadrenagem`
+- Versão: `0.1.1+2`
+
+O identificador iOS deste repositório é diferente do usado no repositório **Conferência de Drenagem 2**, permitindo que os dois aplicativos sejam reconhecidos separadamente no iPhone.
+
+## Funções e dados preservados
+
+- Código principal em `lib/main.dart`.
+- Seleção de GO-110 e GO-236.
+- Cálculo estimado de estaca pelo eixo e localização GPS.
+- Registro de coordenadas, medidas, observações e fotos.
+- Armazenamento local.
+- Dados de referência, alinhamentos, catálogos e imagens em `material-base/`.
+
+Nenhuma função Dart do aplicativo foi alterada nesta preparação para iOS.
