@@ -25,7 +25,7 @@ workflows:
           ]
           for permission in permissions:
               if permission not in text:
-                  text = text.replace('<application', permission + '\\n    <application', 1)
+                  text = text.replace('<application', permission + '\n    <application', 1)
           text = re.sub(r'android:label="[^"]+"', 'android:label="Conferência de Drenagem"', text, count=1)
           gradle_kts = Path('android/app/build.gradle.kts')
           if gradle_kts.exists():
@@ -71,7 +71,7 @@ workflows:
           ]
           for key, value in entries:
               if f'<key>{key}</key>' not in content:
-                  entry = f'    <key>{key}</key>\\n    <string>{value}</string>\\n'
+                  entry = f'    <key>{key}</key>\n    <string>{value}</string>\n'
                   content = content.replace('</dict>', entry + '</dict>', 1)
           path.write_text(content)
           PY
