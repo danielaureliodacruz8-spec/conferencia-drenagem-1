@@ -1,23 +1,11 @@
-# Conferência de drenagem rodoviária
+# Materiais de referência do projeto
 
-Repositório organizado com a base de referência para o app de fiscalização de drenagem usado em campo.
+O app Flutter Android fica na raiz do repositório. Esta pasta reúne o protótipo navegável, os arquivos de eixo, as marcas e os dados derivados dos projetos.
 
-## Conteúdo
+- GO-110: registros de drenagem estruturados e referências de estaca.
+- GO-236: catálogo de tipos compartilhado; localização da drenagem preenchida manualmente até receber o projeto dessa rodovia.
+- Alinhamentos amostrados: cada ponto contém coordenada UTM leste/norte e distância acumulada em metros; o app estima a estaca por início do eixo + distância / 20.
 
-- `app/prototype-singlefile.html`: protótipo navegável de interface e fluxo.
-- `data/source/alignments/`: eixos XML da GO-110 e GO-236.
-- `data/processed/`: catálogo de dispositivos e transcrições de referência da drenagem da GO-110.
-- `data/processed/projects/GO236/README.md`: mesmos tipos de dispositivos; posições da GO-236 ficam para preenchimento manual até chegar o projeto dessa rodovia.
-- `app/public/assets/`: marcas visuais e imagem de exemplo da foto carimbada.
-- `docs/`: notas dos alinhamentos, critérios técnicos e estilo de fotos.
+A estimativa da GO-110 exibe alerta: a soma dos elementos do XML diverge 38,635 m da extensão declarada e há equações de estaca que precisam ser conferidas. Compare com referência de obra antes de usar em medição oficial.
 
-## Uso no Android / CodeMagic
-
-Este material é a base organizada e o protótipo visual. A interface HTML ainda precisa ser implementada no app Flutter Android do CodeMagic. Os dados da GO-110 são próprios dessa rodovia e não devem ser usados como localização na GO-236.
-
-## Observações de campo
-
-- A estaca pelo GPS depende de validar o sistema de coordenadas e as equações de estaca do eixo.
-- O formulário pode registrar medidas e calcular quantitativos conforme dimensões e fórmulas cadastradas.
-- A aprovação precisa comparar medidas com critérios e tolerâncias definidos no projeto; preencher o formulário sozinho não comprova conformidade.
-- Os PDFs de origem foram mantidos fora deste repositório; os dados estruturados/transcritos relevantes estão em `data/processed/projects/GO110/`.
+Os PDFs originais não estão neste repositório. As transcrições e dados estruturados estão em `data/processed/projects/GO110/`.

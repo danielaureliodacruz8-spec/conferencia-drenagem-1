@@ -1,10 +1,13 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:proj4dart/proj4dart.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() => runApp(const DrainageApp());
@@ -56,8 +59,12 @@ class _InspectionScreenState extends State<InspectionScreen> {
   String? _projectChoice;
   List<Map<String, dynamic>> _types = [];
   List<Map<String, dynamic>> _projectItems = [];
+  final Map<String, Map<String, dynamic>> _axes = {};
   List<String> _records = [];
   Position? _position;
+  String? _gpsStation;
+  double? _axisOffset;
+  double? _stationingWarningMeters;
   XFile? _photo;
   bool _loading = true;
   bool _busy = false;
@@ -80,6 +87,10 @@ class _InspectionScreenState extends State<InspectionScreen> {
 
   Future<void> _loadData() async {
     try {
+      final go110Axis = Map<String, dynamic>.from(jsonDecode(
+          (await rootBundle.loadString('material-base/data/processed/alignments/GO110-centerline.json')).replaceFirst('\uFEFF', '')));
+      final go236Axis = Map<String, dynamic>.from(jsonDecode(
+          (await rootBundle.loadString('material-base/data/processed/alignments/GO236-centerline.json')).replaceFirst('\uFEFF', '')));
       final catalog = jsonDecode(await rootBundle
           .loadString('material-base/data/processed/device-catalog.json'));
       final types = List<Map<String, dynamic>>.from(catalog['sharedTypes']);
@@ -131,10 +142,15 @@ class _InspectionScreenState extends State<InspectionScreen> {
       setState(() {
         _types = types;
         _projectItems = items;
+        _axes.addAll({'GO-110': go110Axis, 'GO-236': go236Axis});
+        final declared = (go110Axis['sourceLengthMeters'] as num).toDouble();
+        final sampled = (go110Axis['sampleLengthMeters'] as num).toDouble();
+        _stationingWarningMeters = (sampled - declared).abs();
         _records = saved;
         _loading = false;
         _type = types.isEmpty ? null : types.first['id'] as String;
       });
+      unawaited(_captureGps());
     } catch (error) {
       if (!mounted) return;
       setState(() => _loading = false);
@@ -175,12 +191,76 @@ class _InspectionScreenState extends State<InspectionScreen> {
         ),
       );
       if (!mounted) return;
-      setState(() => _position = position);
+      final result = _calculateStation(_road, position);
+      setState(() {
+        _position = position;
+        _gpsStation = result?['station'] as String?;
+        _axisOffset = (result?['offsetMeters'] as num?)?.toDouble();
+        if (_gpsStation != null) _station.text = _gpsStation!;
+      });
+      if (_gpsStation == null) _message('Não encontrei o ponto dentro do eixo carregado. Informe a estaca manualmente.');
     } catch (error) {
       _message('Não consegui obter o GPS: $error');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  Map<String, dynamic>? _calculateStation(String road, Position position) {
+    final axis = _axes[road];
+    if (axis == null) return null;
+    final geographic = Projection.get('EPSG:4326');
+    final utm = Projection.parse(
+        '+proj=utm +zone=23 +south +ellps=GRS80 +towgs84=0,0,0 +units=m +no_defs');
+    final projected = geographic!.transform(
+      utm,
+      Point(x: position.longitude, y: position.latitude),
+    );
+    final x = projected.x;
+    final y = projected.y;
+    final points = List<List<dynamic>>.from(
+      (axis['points'] as List).map((item) => List<dynamic>.from(item)),
+    );
+    if (points.length < 2) return null;
+    var nearestDistance = double.infinity;
+    var nearestChainage = 0.0;
+    for (var i = 0; i < points.length - 1; i++) {
+      final a = points[i];
+      final b = points[i + 1];
+      final ax = (a[0] as num).toDouble();
+      final ay = (a[1] as num).toDouble();
+      final bx = (b[0] as num).toDouble();
+      final by = (b[1] as num).toDouble();
+      final dx = bx - ax;
+      final dy = by - ay;
+      final lengthSquared = dx * dx + dy * dy;
+      if (lengthSquared == 0) continue;
+      final t = (((x - ax) * dx + (y - ay) * dy) / lengthSquared)
+          .clamp(0.0, 1.0)
+          .toDouble();
+      final nearestX = ax + t * dx;
+      final nearestY = ay + t * dy;
+      final distance = math.sqrt((x - nearestX) * (x - nearestX) +
+          (y - nearestY) * (y - nearestY));
+      if (distance < nearestDistance) {
+        nearestDistance = distance;
+        final fromM = (a[2] as num).toDouble();
+        final toM = (b[2] as num).toDouble();
+        nearestChainage = fromM + (toM - fromM) * t;
+      }
+    }
+    if (nearestDistance > 100) return null;
+    const interval = 20.0;
+    final startStation = (axis['stationStart'] as num).toDouble();
+    final stationDecimal = startStation + nearestChainage / interval;
+    final wholeStation = stationDecimal.floor();
+    final offsetMeters = (stationDecimal - wholeStation) * interval;
+    final stationLabel = '$wholeStation+${offsetMeters.toStringAsFixed(2).padLeft(5, '0')}';
+    return {
+      'station': stationLabel,
+      'offsetMeters': nearestDistance,
+      'chainageMeters': nearestChainage,
+    };
   }
 
   Future<void> _pickPhoto(ImageSource source) async {
@@ -330,13 +410,19 @@ class _InspectionScreenState extends State<InspectionScreen> {
                       DropdownMenuItem(value: 'GO-110', child: Text('GO-110')),
                       DropdownMenuItem(value: 'GO-236', child: Text('GO-236')),
                     ],
-                    onChanged: (value) => setState(() {
-                      _road = value ?? 'GO-110';
-                      _projectChoice = null;
-                      _id.clear();
-                      _station.clear();
-                      _side.clear();
-                    }),
+                    onChanged: (value) {
+                      setState(() {
+                        _road = value ?? 'GO-110';
+                        _projectChoice = null;
+                        _position = null;
+                        _gpsStation = null;
+                        _axisOffset = null;
+                        _id.clear();
+                        _station.clear();
+                        _side.clear();
+                      });
+                      unawaited(_captureGps());
+                    },
                   ),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
@@ -404,15 +490,23 @@ class _InspectionScreenState extends State<InspectionScreen> {
                   OutlinedButton.icon(
                     onPressed: _busy ? null : _captureGps,
                     icon: const Icon(Icons.my_location),
-                    label: Text(_busy ? 'Obtendo GPS…' : 'Registrar coordenadas GPS'),
+                    label: Text(_busy ? 'Obtendo GPS…' : 'Obter GPS e calcular estaca'),
                   ),
                   if (_position != null)
                     Card(
                       child: ListTile(
                         leading: const Icon(Icons.location_on, color: teal),
                         title: Text('${_position!.latitude.toStringAsFixed(6)}, ${_position!.longitude.toStringAsFixed(6)}'),
-                        subtitle: Text('Precisão aproximada: ${_position!.accuracy.toStringAsFixed(1)} m. Estaca não calculada do GPS.'),
+                        subtitle: Text(_gpsStation == null
+                            ? 'GPS ±${_position!.accuracy.toStringAsFixed(1)} m • posição fora do eixo carregado.'
+                            : 'Estaca $_gpsStation • ${_axisOffset!.toStringAsFixed(1)} m do eixo • GPS ±${_position!.accuracy.toStringAsFixed(1)} m.'),
                       ),
+                    ),
+                  if (_road == 'GO-110' && (_stationingWarningMeters ?? 0) > 1)
+                    const Padding(
+                      padding: EdgeInsets.only(top: 2, bottom: 8),
+                      child: Text('Atenção: o XML da GO-110 tem divergência de extensão e equações de estaca a conferir. A estimativa usa estaca inicial + metros pelo eixo ÷ 20; confira com uma referência conhecida.',
+                          style: TextStyle(color: Color(0xFF8A5B00))),
                     ),
                   const SizedBox(height: 10),
                   Row(children: [

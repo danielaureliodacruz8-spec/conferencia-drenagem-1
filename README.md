@@ -15,12 +15,13 @@ Projeto Flutter para Android com um protótipo de fiscalização de drenagem e o
 - Permite selecionar GO-110 ou GO-236 e escolher o tipo de dispositivo compartilhado entre as rodovias.
 - Na GO-110, permite buscar dispositivos e referências de estaca extraídos do projeto.
 - Na GO-236, deixa a localização para preenchimento manual; não transfere para ela os locais da GO-110.
+- Ao abrir, solicita o GPS, projeta a posição para o eixo UTM e estima a estaca por `estaca inicial + distância ao longo do eixo ÷ 20 m`.
 - Registra coordenadas GPS, medidas digitadas, observações e foto.
 - Guarda registros localmente no aparelho e mantém a situação como pendente até haver critérios de aceitação configurados.
 
 ## O que precisa de implementação antes de uso oficial
 
-Esta versão é um MVP de campo para gerar e experimentar. Ainda precisa validar a transformação de coordenadas e cálculo automático da estaca, incluir o carimbo da foto e relatórios PDF, definir fórmulas de concreto por tipo de dispositivo, configurar critérios/tolerâncias de aprovação e implementar sincronização. O APK de depuração serve para testar; para distribuição oficial, configure a assinatura Android no CodeMagic.
+Esta versão é um MVP de campo para gerar e experimentar. A estaca calculada é uma estimativa pelo eixo; a conferência de alinhamento e tolerância de GPS continua necessária. O XML da GO-110 tem diferença entre extensão declarada e soma dos segmentos, e suas equações precisam ser confirmadas antes de tratar a estaca como oficial. Ainda falta incluir o carimbo da foto e relatórios PDF, definir fórmulas de concreto por tipo de dispositivo, configurar critérios/tolerâncias de aprovação e implementar sincronização. O APK de depuração serve para testar; para distribuição oficial, configure a assinatura Android no CodeMagic.
 
 ## Organização
 
