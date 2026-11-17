@@ -1,7 +1,7 @@
 name: conferencia_drenagem
 description: App de campo para registro de fiscalização de drenagem rodoviária.
 publish_to: "none"
-version: 0.1.0+1
+version: 0.1.1+2
 
 environment:
   sdk: ">=3.11.0 <4.0.0"
@@ -28,4 +28,3 @@ flutter:
     - material-base/data/processed/projects/GO110/surface-devices.json
     - material-base/data/processed/alignments/GO110-centerline.json
     - material-base/data/processed/alignments/GO236-centerline.json
-
