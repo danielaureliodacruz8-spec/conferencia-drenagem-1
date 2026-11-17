@@ -6,14 +6,17 @@ workflows:
     environment:
       flutter: stable
     scripts:
+      - name: Limpar artefatos antigos
+        script: rm -rf build
       - name: Gerar estrutura Android
         script: flutter create --platforms=android --org br.com.stratabasitec --project-name conferencia_drenagem .
       - name: Instalar dependências
         script: flutter pub get
-      - name: Declarar permissão de localização
+      - name: Declarar permissões, nome do app e minSdk
         script: |
           python3 - <<'PY'
           from pathlib import Path
+          import re
           manifest = Path('android/app/src/main/AndroidManifest.xml')
           text = manifest.read_text()
           permissions = [
@@ -23,6 +26,7 @@ workflows:
           for permission in permissions:
               if permission not in text:
                   text = text.replace('<application', permission + '\n    <application', 1)
+          text = re.sub(r'android:label="[^"]+"', 'android:label="Conferência de Drenagem"', text, count=1)
           manifest.write_text(text)
           gradle_kts = Path('android/app/build.gradle.kts')
           if gradle_kts.exists():
@@ -35,7 +39,9 @@ workflows:
               gradle = gradle.replace('minSdkVersion flutter.minSdkVersion', 'minSdkVersion 24')
               gradle_groovy.write_text(gradle)
           PY
-      - name: Gerar APK Android para instalar e testar
-        script: flutter build apk --debug
+      - name: Gerar APK Android versão 0.1.1 (build 2)
+        script: |
+          flutter build apk --debug --build-name=0.1.1 --build-number=2
+          cp build/app/outputs/flutter-apk/app-debug.apk build/app/outputs/flutter-apk/Conferencia-de-Drenagem-v0.1.1-build2.apk
     artifacts:
-      - build/app/outputs/flutter-apk/app-debug.apk
+      - build/app/outputs/flutter-apk/Conferencia-de-Drenagem-v0.1.1-build2.apk
